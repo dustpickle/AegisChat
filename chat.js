@@ -1,22 +1,4 @@
-window.ChatWidgetConfig = {
-    webhook: {
-        url: 'https://meadholdings.app.n8n.cloud/webhook/1e5802f0-9712-4857-bbb1-b3a89683ab47/chat',
-        route: 'general'
-    },
-    branding: {
-        logo: 'https://www.aegisliving.com/wp-content/uploads/2023/06/aegis-living-logo-blue.svg',
-        name: 'Aegis Living Assistant', // Your company name
-        welcomeText: 'Welcome to  Aegis Living. I am your Community Care Advisor and I am here to help guide you towards the answers you are needing. May I start by having your first name so I know how to address you?', //Welcome message
-        responseTimeText: 'We typically respond right away' //Response time message
-    },
-    style: {
-        primaryColor: '#003f72', //Primary color
-        secondaryColor: '#003f72', //Secondary color
-        position: 'right', //Position of the widget (left or right)
-        backgroundColor: '#ffffff', //Background color of the chat widget
-        fontColor: '#333333' //Text color for messages and interface
-    }
-};
+
 // Chat Widget Script - Version 1.9.1
 
 (function() {

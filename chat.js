@@ -1,4 +1,3 @@
-
 // Chat Widget Script - Version 1.9.1
 
 (function() {
@@ -94,11 +93,16 @@
   function formatMessage(text) {
     if (!text) return '';
     
+    // Check if the message contains HTML elements, and if so, don't process URLs
+    const containsHtml = /<[a-z][\s\S]*>/i.test(text);
+    
     // Convert markdown-style links [text](url) to HTML links
     text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
     
-    // Handle raw URLs
-    text = text.replace(/(https?:\/\/[^\s<]+)(?![^<]*>)/g, '<a href="$1" target="_blank">Visit Website</a>');
+    // Handle raw URLs ONLY if the message doesn't contain HTML
+    if (!containsHtml) {
+      text = text.replace(/(https?:\/\/[^\s<]+)(?![^<]*>)/g, '<a href="$1" target="_blank">Visit Website</a>');
+    }
     
     // Bold text between ** **
     text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');

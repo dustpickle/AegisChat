@@ -1,8 +1,8 @@
-// Chat Widget Script - Version 1.9.1
+// Chat Widget Script - Version 1.9.5
 
 (function() {
   // Configuration
-  const CHAT_VERSION = "1.9.1";
+  const CHAT_VERSION = "1.9.5";
   console.log("AegisChatVersion:", CHAT_VERSION);
   
   // Store user IP globally
@@ -28,14 +28,16 @@
   const defaultConfig = {
     webhook: { url: '', route: '' },
     branding: { logo: '', name: '', welcomeText: 'Hello! How can I assist you today?' },
-    style: { primaryColor: '#854fff', secondaryColor: '#6b3fd4', position: 'right' }
+    style: { primaryColor: '#854fff', secondaryColor: '#6b3fd4', position: 'right' },
+    autoPopup: false // Default to false for auto popup
   };
   
   // Merge user config with defaults
   const config = window.ChatWidgetConfig ? {
     webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
     branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
-    style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style }
+    style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style },
+    autoPopup: window.ChatWidgetConfig.autoPopup !== undefined ? window.ChatWidgetConfig.autoPopup : defaultConfig.autoPopup
   } : defaultConfig;
   
   // Prevent multiple initializations
@@ -58,6 +60,131 @@
         if (searchParams.has(key)) {
           utmParams[key] = searchParams.get(key);
         }
+    }
+    
+    // Expose sendMessage function to global scope for inline click handlers
+    window.sendMessage = sendMessage;
+    
+    // Add event listeners
+    toggleButton.addEventListener('click', function() {
+      hidePromptBubble();
+      promptBubbleShown = true;
+      
+      if (!chatContainer.classList.contains('open')) {
+        chatContainer.classList.add('open');
+        toggleButton.classList.add('hidden');
+        
+        // Handle mobile
+        if (window.innerWidth <= 600) {
+          document.body.style.overflow = 'hidden';
+        }
+        
+        // Clear any existing messages first
+        messagesContainer.innerHTML = '';
+        
+        // Try to load existing session
+        const sessionRestored = loadSession();
+        
+        if (!sessionRestored) {
+          // Create new session
+          inactivityMessageSent = false;
+          currentSessionId = generateUUID();
+          
+          // Add welcome message only for new sessions
+          const botMessageDiv = document.createElement('div');
+          botMessageDiv.className = 'chat-message bot';
+          botMessageDiv.innerHTML = formatMessage(config.branding.welcomeText);
+          messagesContainer.appendChild(botMessageDiv);
+        }
+        
+        // Save session after changes
+        saveSession();
+        
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        startInactivityTimer();
+        clearTimeout(promptBubbleTimer);
+      }
+    });
+    
+    // Send button click event
+    sendButton.addEventListener('click', function() {
+      const message = textarea.value.trim();
+      if (message) {
+        sendMessage(message);
+        textarea.value = '';
+      }
+    });
+    
+    // Textarea keypress event
+    textarea.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const message = textarea.value.trim();
+        if (message) {
+          sendMessage(message);
+          textarea.value = '';
+        }
+      }
+    });
+    
+    // Close button event
+    const closeButton = chatContainer.querySelector('.close-button');
+    closeButton.addEventListener('click', function() {
+      chatContainer.classList.remove('open');
+      toggleButton.classList.remove('hidden');
+      document.body.style.overflow = '';
+      clearTimeout(inactivityTimer);
+      saveSession();
+      
+      // Track that user has manually closed the chat
+      userManuallyClosedChat = true;
+    });
+    
+    // Auto-open chat if enabled in config
+    const AUTO_OPEN_DELAY = 5000; // 5 seconds
+    const isDesktop = window.innerWidth > 768; // Common breakpoint for desktop
+    
+    if (isDesktop && config.autoPopup === true) {
+      setTimeout(function() {
+        // Only auto-open if:
+        // 1. The chat isn't already open
+        // 2. The user hasn't manually closed the chat in this session
+        if (!chatContainer.classList.contains('open') && !userManuallyClosedChat) {
+          // Simulate toggle button click to open chat
+          hidePromptBubble();
+          promptBubbleShown = true;
+          
+          chatContainer.classList.add('open');
+          toggleButton.classList.add('hidden');
+          
+          // Clear any existing messages first
+          messagesContainer.innerHTML = '';
+          
+          // Try to load existing session
+          const sessionRestored = loadSession();
+          
+          if (!sessionRestored) {
+            // Create new session
+            inactivityMessageSent = false;
+            currentSessionId = generateUUID();
+            
+            // Add welcome message only for new sessions
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.className = 'chat-message bot';
+            botMessageDiv.innerHTML = formatMessage(config.branding.welcomeText);
+            messagesContainer.appendChild(botMessageDiv);
+          }
+          
+          // Save session after changes
+          saveSession();
+          
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          startInactivityTimer();
+          clearTimeout(promptBubbleTimer);
+        }
+      }, AUTO_OPEN_DELAY);
+    }
+  })();
       });
       
       // Also check for any other custom utm parameters
@@ -361,7 +488,7 @@
       z-index: 1002;
       width: 380px;
       height: 600px;
-      background: #ffffff;
+      background: ${config.style.backgroundColor || '#ffffff'};
       border-radius: 12px !important;
       box-shadow: 0 8px 32px rgba(133, 79, 255, 0.15);
       border: 1px solid rgba(133, 79, 255, 0.2);
@@ -425,6 +552,7 @@
     .n8n-chat-widget .brand-header span {
       font-size: 18px;
       font-weight: 500;
+      color: ${config.style.fontColor || '#333333'};
     }
     .n8n-chat-widget .chat-interface {
       display: flex;
@@ -454,9 +582,9 @@
       box-shadow: 0 4px 12px rgba(133, 79, 255, 0.2);
     }
     .n8n-chat-widget .chat-message.bot {
-      background: #ffffff;
+      background: ${config.style.backgroundColor || '#ffffff'};
       border: 1px solid rgba(133, 79, 255, 0.2);
-      color: #333;
+      color: ${config.style.fontColor || '#333333'};
       align-self: flex-start;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     }
@@ -471,7 +599,7 @@
       padding: 12px 10px;
       border-radius: 8px;
       border: 1px solid rgba(133, 79, 255, 0.3);
-      background: #fff;
+      background: ${config.style.backgroundColor || '#ffffff'};
       color: var(--chat--color-primary);
       font-size: 14px;
       font-weight: 500;
@@ -505,6 +633,8 @@
       resize: none;
       font-family: inherit;
       font-size: 14px;
+      color: ${config.style.fontColor || '#333333'};
+      background: ${config.style.backgroundColor || '#ffffff'};
     }
     .n8n-chat-widget .chat-input button {
       background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
@@ -622,7 +752,7 @@
         border-radius: 12px;
         max-width: 80%;
         align-self: flex-start;
-        background: #fff;
+        background: ${config.style.backgroundColor || '#ffffff'};
         border: 1px solid rgba(133, 79, 255, 0.2);
       }
       .n8n-chat-widget .dot {
@@ -643,7 +773,7 @@
         position: absolute;
         bottom: 90px;
         right: 10px;
-        background: white;
+        background: ${config.style.backgroundColor || '#ffffff'};
         color: var(--chat--color-primary);
         padding: 8px 14px;
         border-radius: 18px;
@@ -892,128 +1022,3 @@
         
         saveSession();
       }
-    }
-    
-    // Expose sendMessage function to global scope for inline click handlers
-    window.sendMessage = sendMessage;
-    
-    // Add event listeners
-    toggleButton.addEventListener('click', function() {
-      hidePromptBubble();
-      promptBubbleShown = true;
-      
-      if (!chatContainer.classList.contains('open')) {
-        chatContainer.classList.add('open');
-        toggleButton.classList.add('hidden');
-        
-        // Handle mobile
-        if (window.innerWidth <= 600) {
-          document.body.style.overflow = 'hidden';
-        }
-        
-        // Clear any existing messages first
-        messagesContainer.innerHTML = '';
-        
-        // Try to load existing session
-        const sessionRestored = loadSession();
-        
-        if (!sessionRestored) {
-          // Create new session
-          inactivityMessageSent = false;
-          currentSessionId = generateUUID();
-          
-          // Add welcome message only for new sessions
-          const botMessageDiv = document.createElement('div');
-          botMessageDiv.className = 'chat-message bot';
-          botMessageDiv.innerHTML = formatMessage(config.branding.welcomeText);
-          messagesContainer.appendChild(botMessageDiv);
-        }
-        
-        // Save session after changes
-        saveSession();
-        
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        startInactivityTimer();
-        clearTimeout(promptBubbleTimer);
-      }
-    });
-    
-    // Send button click event
-    sendButton.addEventListener('click', function() {
-      const message = textarea.value.trim();
-      if (message) {
-        sendMessage(message);
-        textarea.value = '';
-      }
-    });
-    
-    // Textarea keypress event
-    textarea.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const message = textarea.value.trim();
-        if (message) {
-          sendMessage(message);
-          textarea.value = '';
-        }
-      }
-    });
-    
-    // Close button event
-    const closeButton = chatContainer.querySelector('.close-button');
-    closeButton.addEventListener('click', function() {
-      chatContainer.classList.remove('open');
-      toggleButton.classList.remove('hidden');
-      document.body.style.overflow = '';
-      clearTimeout(inactivityTimer);
-      saveSession();
-      
-      // Track that user has manually closed the chat
-      userManuallyClosedChat = true;
-    });
-    
-    // Auto-open chat on desktop after 5 seconds
-    const AUTO_OPEN_DELAY = 5000; // 5 seconds
-    const isDesktop = window.innerWidth > 768; // Common breakpoint for desktop
-    
-    if (isDesktop) {
-      setTimeout(function() {
-        // Only auto-open if:
-        // 1. The chat isn't already open
-        // 2. The user hasn't manually closed the chat in this session
-        if (!chatContainer.classList.contains('open') && !userManuallyClosedChat) {
-          // Simulate toggle button click to open chat
-          hidePromptBubble();
-          promptBubbleShown = true;
-          
-          chatContainer.classList.add('open');
-          toggleButton.classList.add('hidden');
-          
-          // Clear any existing messages first
-          messagesContainer.innerHTML = '';
-          
-          // Try to load existing session
-          const sessionRestored = loadSession();
-          
-          if (!sessionRestored) {
-            // Create new session
-            inactivityMessageSent = false;
-            currentSessionId = generateUUID();
-            
-            // Add welcome message only for new sessions
-            const botMessageDiv = document.createElement('div');
-            botMessageDiv.className = 'chat-message bot';
-            botMessageDiv.innerHTML = formatMessage(config.branding.welcomeText);
-            messagesContainer.appendChild(botMessageDiv);
-          }
-          
-          // Save session after changes
-          saveSession();
-          
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          startInactivityTimer();
-          clearTimeout(promptBubbleTimer);
-        }
-      }, AUTO_OPEN_DELAY);
-    }
-  })();

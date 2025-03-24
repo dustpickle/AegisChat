@@ -191,10 +191,11 @@
               };
             }),
           inactivityMessageSent: inactivityMessageSent,
-          promptBubbleShown: promptBubbleShown, // Save prompt bubble state
+          promptBubbleShown: promptBubbleShown,
           timestamp: new Date().getTime(),
-          // Store UTM parameters with the session
-          utmParameters: window.initialUtmParameters || {}
+          utmParameters: window.initialUtmParameters || {},
+          isChatOpen: chatContainer.classList.contains('open'),
+          userManuallyClosedChat: userManuallyClosedChat
         };
         
         localStorage.setItem('n8nChatSession', JSON.stringify(sessionData));
@@ -235,6 +236,14 @@
           // Restore UTM parameters if they exist in the session
           if (sessionData.utmParameters) {
             window.initialUtmParameters = sessionData.utmParameters;
+          }
+
+          // Restore chat open/closed state
+          if (sessionData.isChatOpen && !sessionData.userManuallyClosedChat) {
+            chatContainer.classList.add('open');
+            toggleButton.classList.add('hidden');
+            document.body.style.overflow = window.innerWidth <= 600 ? 'hidden' : '';
+            startInactivityTimer();
           }
           
           // Restore messages
@@ -996,7 +1005,10 @@
     const AUTO_OPEN_DELAY = 5000; // 5 seconds
     const isDesktop = window.innerWidth > 768; // Common breakpoint for desktop
     
-    if (isDesktop && config.autoPopup) {
+    // Try to load existing session first
+    const sessionRestored = loadSession();
+    
+    if (isDesktop && config.autoPopup && !sessionRestored) {
       setTimeout(function() {
         // Only auto-open if:
         // 1. The chat isn't already open
@@ -1012,20 +1024,15 @@
           // Clear any existing messages first
           messagesContainer.innerHTML = '';
           
-          // Try to load existing session
-          const sessionRestored = loadSession();
+          // Create new session
+          inactivityMessageSent = false;
+          currentSessionId = generateUUID();
           
-          if (!sessionRestored) {
-            // Create new session
-            inactivityMessageSent = false;
-            currentSessionId = generateUUID();
-            
-            // Add welcome message only for new sessions
-            const botMessageDiv = document.createElement('div');
-            botMessageDiv.className = 'chat-message bot';
-            botMessageDiv.innerHTML = formatMessage(config.branding.welcomeText);
-            messagesContainer.appendChild(botMessageDiv);
-          }
+          // Add welcome message only for new sessions
+          const botMessageDiv = document.createElement('div');
+          botMessageDiv.className = 'chat-message bot';
+          botMessageDiv.innerHTML = formatMessage(config.branding.welcomeText);
+          messagesContainer.appendChild(botMessageDiv);
           
           // Save session after changes
           saveSession();

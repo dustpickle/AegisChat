@@ -29,7 +29,8 @@
     webhook: { url: '', route: '' },
     branding: { logo: '', name: '', welcomeText: 'Hello! How can I assist you today?' },
     style: { primaryColor: '#854fff', secondaryColor: '#6b3fd4', position: 'right' },
-    autoPopup: true // Default to true for backward compatibility
+    autoPopup: true, // Default to true for backward compatibility
+    closeCommands: ['close', 'stop', 'go away', 'bye', 'goodbye', 'exit', 'quit', 'minimize', 'hide']
   };
   
   // Merge user config with defaults
@@ -37,7 +38,8 @@
     webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
     branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
     style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style },
-    autoPopup: window.ChatWidgetConfig.autoPopup !== undefined ? window.ChatWidgetConfig.autoPopup : defaultConfig.autoPopup
+    autoPopup: window.ChatWidgetConfig.autoPopup !== undefined ? window.ChatWidgetConfig.autoPopup : defaultConfig.autoPopup,
+    closeCommands: window.ChatWidgetConfig.closeCommands || defaultConfig.closeCommands
   } : defaultConfig;
   
   // Prevent multiple initializations
@@ -727,6 +729,22 @@
     
     // Send message function
     async function sendMessage(message) {
+      // Check if message is a close command
+      const isCloseCommand = config.closeCommands.some(cmd => 
+        message.toLowerCase().trim() === cmd.toLowerCase()
+      );
+
+      if (isCloseCommand) {
+        // Close the chat
+        chatContainer.classList.remove('open');
+        toggleButton.classList.remove('hidden');
+        document.body.style.overflow = '';
+        clearTimeout(inactivityTimer);
+        saveSession();
+        userManuallyClosedChat = true;
+        return;
+      }
+
       // Reset inactivity state when user sends a message
       resetInactivityState();
       

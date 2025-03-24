@@ -60,7 +60,7 @@
         if (searchParams.has(key)) {
           utmParams[key] = searchParams.get(key);
         }
-    }
+      }); 
     
     // Expose sendMessage function to global scope for inline click handlers
     window.sendMessage = sendMessage;
